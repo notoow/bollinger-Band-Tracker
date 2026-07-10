@@ -452,6 +452,9 @@ export function BandDashboard() {
           <span>BANDWATCH</span>
         </a>
         <div className="topbar-actions">
+          <a className="community-link" href="#community">
+            커뮤니티
+          </a>
           <button className={`utility-button ${alertsEnabled ? "is-active" : ""}`} onClick={requestAlerts}>
             <span className="button-dot" />
             {alertsEnabled ? "알림 켜짐" : "알림 켜기"}
