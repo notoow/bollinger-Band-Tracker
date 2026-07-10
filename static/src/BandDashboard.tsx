@@ -269,7 +269,7 @@ function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
   return (
     <>
       <div className="chart-range" aria-label="차트 기간 선택">
-        {[{ label: "1M", days: 22 }, { label: "3M", days: 65 }, { label: "6M", days: 130 }, { label: "1Y", days: 252 }].map((option) => (
+        {[{ label: "1W", days: 5 }, { label: "1M", days: 22 }, { label: "3M", days: 65 }, { label: "6M", days: 130 }, { label: "1Y", days: 252 }].map((option) => (
           <button key={option.days} type="button" className={range === option.days ? "active" : ""} onClick={() => setRange(option.days)}>{option.label}</button>
         ))}
       </div>
