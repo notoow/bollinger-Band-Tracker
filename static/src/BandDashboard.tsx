@@ -278,38 +278,162 @@ function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
   );
 }
 
+type GitHubIssue = {
+  number: number;
+  html_url: string;
+};
+
+type GitHubIssueComment = {
+  id: number;
+  body: string;
+  created_at: string;
+  html_url: string;
+  user: {
+    login: string;
+  } | null;
+};
+
+function commentPreview(body: string) {
+  const text = body
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, " ")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[#>*_~|-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!text) return "GitHub에 마크다운, 이미지 또는 첨부 댓글이 남겨져 있습니다.";
+  return text.length > 220 ? `${text.slice(0, 220)}...` : text;
+}
+
+function issueTitle() {
+  if (typeof window === "undefined") return "/bollinger-Band-Tracker/";
+  return window.location.pathname || "/bollinger-Band-Tracker/";
+}
+
+function newCommunityIssueUrl(title: string) {
+  const params = new URLSearchParams({
+    labels: "community",
+    title,
+    body: "BANDWATCH 커뮤니티 댓글 스레드입니다. 시장 신호, 종목 메모, 전략 아이디어를 자유롭게 남겨주세요.",
+  });
+  return `https://github.com/notoow/bollinger-Band-Tracker/issues/new?${params.toString()}`;
+}
+
 function CommunityComments() {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [issue, setIssue] = useState<GitHubIssue | null>(null);
+  const [comments, setComments] = useState<GitHubIssueComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(true);
+  const [commentsError, setCommentsError] = useState(false);
+  const [fallbackIssueUrl, setFallbackIssueUrl] = useState(
+    newCommunityIssueUrl("/bollinger-Band-Tracker/"),
+  );
+
+  const loadComments = useCallback(async () => {
+    const title = issueTitle();
+    const repo = "notoow/bollinger-Band-Tracker";
+
+    setLoadingComments(true);
+    setCommentsError(false);
+    setFallbackIssueUrl(newCommunityIssueUrl(title));
+
+    try {
+      const searchParams = new URLSearchParams({
+        q: `repo:${repo} type:issue label:community in:title "${title}"`,
+        per_page: "1",
+      });
+      const searchResponse = await fetch(`https://api.github.com/search/issues?${searchParams.toString()}`, {
+        headers: { Accept: "application/vnd.github+json" },
+      });
+
+      if (!searchResponse.ok) throw new Error("GitHub issue search failed");
+
+      const searchResult = (await searchResponse.json()) as { items?: GitHubIssue[] };
+      const foundIssue = searchResult.items?.[0] ?? null;
+      setIssue(foundIssue);
+
+      if (!foundIssue) {
+        setComments([]);
+        return;
+      }
+
+      const commentsResponse = await fetch(
+        `https://api.github.com/repos/${repo}/issues/${foundIssue.number}/comments?per_page=20`,
+        { headers: { Accept: "application/vnd.github+json" } },
+      );
+
+      if (!commentsResponse.ok) throw new Error("GitHub comments fetch failed");
+
+      const issueComments = (await commentsResponse.json()) as GitHubIssueComment[];
+      setComments(issueComments.slice(-4).reverse());
+    } catch {
+      setCommentsError(true);
+    } finally {
+      setLoadingComments(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const timer = window.setTimeout(() => void loadComments(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadComments]);
 
-    container.innerHTML = "";
-
-    const script = document.createElement("script");
-    script.src = "https://utteranc.es/client.js";
-    script.async = true;
-    script.crossOrigin = "anonymous";
-    script.setAttribute("repo", "notoow/bollinger-Band-Tracker");
-    script.setAttribute("issue-term", "pathname");
-    script.setAttribute("label", "community");
-    script.setAttribute("theme", "github-dark");
-
-    container.appendChild(script);
-  }, []);
+  const commentUrl = issue ? `${issue.html_url}#new_comment_field` : fallbackIssueUrl;
 
   return (
     <section className="community-panel" id="community">
       <div className="community-copy">
-        <p className="section-kicker">COMMUNITY</p>
-        <h2>시장 얘기 같이 보기</h2>
-        <p>
-          댓글은 GitHub Issues에 저장됩니다. GitHub 계정으로 로그인하면 신호, 종목, 전략 메모를
-          바로 남길 수 있어요.
-        </p>
+        <div>
+          <p className="section-kicker">COMMUNITY</p>
+          <h2>시장 얘기 같이 보기</h2>
+        </div>
+        <p>댓글은 GitHub Issues에 저장됩니다. 앱에서는 최근 댓글을 바로 읽고, 작성은 GitHub에서 이어집니다.</p>
       </div>
-      <div className="comments-box" ref={containerRef} />
+      <div className="comments-box">
+        <div className="comments-toolbar">
+          <span>{issue ? `Issue #${issue.number}` : "새 커뮤니티 스레드"}</span>
+          <div>
+            <button type="button" onClick={() => void loadComments()} disabled={loadingComments}>
+              {loadingComments ? "확인 중" : "새로고침"}
+            </button>
+            <a href={commentUrl} target="_blank" rel="noreferrer">
+              {issue ? "댓글 남기기" : "첫 댓글 열기"}
+            </a>
+          </div>
+        </div>
+
+        {loadingComments ? (
+          <div className="comment-skeleton" role="status">
+            <span />
+            <span />
+            <span />
+          </div>
+        ) : commentsError ? (
+          <div className="comment-empty">
+            <strong>댓글을 불러오지 못했습니다.</strong>
+            <p>GitHub API 제한이 걸렸을 수 있어요. 버튼으로 GitHub 이슈에서 바로 확인할 수 있습니다.</p>
+          </div>
+        ) : comments.length ? (
+          <div className="comment-list">
+            {comments.map((comment) => (
+              <a className="comment-item" href={comment.html_url} target="_blank" rel="noreferrer" key={comment.id}>
+                <span className="comment-avatar">{comment.user?.login.slice(0, 1).toUpperCase() ?? "?"}</span>
+                <span>
+                  <strong>{comment.user?.login ?? "GitHub user"}</strong>
+                  <small>{fetchedTime(comment.created_at)}</small>
+                  <p>{commentPreview(comment.body)}</p>
+                </span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div className="comment-empty">
+            <strong>아직 열린 댓글 스레드가 없습니다.</strong>
+            <p>첫 댓글을 열면 이 페이지 전용 GitHub Issue가 만들어지고, 이후 댓글이 여기 표시됩니다.</p>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
