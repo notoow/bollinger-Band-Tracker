@@ -645,6 +645,14 @@ input:focus-visible {
   font-weight: 700;
 }
 
+.ticker-avatar img {
+  display: block;
+  width: 23px;
+  height: 23px;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
 .ticker-cell > span:last-child,
 .price-cell {
   min-width: 0;

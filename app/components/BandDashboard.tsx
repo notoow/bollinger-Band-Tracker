@@ -63,6 +63,20 @@ const SIGNAL_PRIORITY: Record<Signal, number> = {
   INSIDE: 4,
 };
 
+function TickerLogo({ symbol }: { symbol: string }) {
+  const [imageAvailable, setImageAvailable] = useState(true);
+
+  return (
+    <span className="ticker-avatar" aria-hidden="true">
+      {imageAvailable ? (
+        <img src={`/icons/${symbol}.png`} alt="" onError={() => setImageAvailable(false)} />
+      ) : (
+        symbol.slice(0, 2)
+      )}
+    </span>
+  );
+}
+
 function signalLabel(signal: Signal) {
   switch (signal) {
     case "UPPER_BREAK":
@@ -418,7 +432,7 @@ export function BandDashboard() {
                       aria-label={`${item.symbol} ${item.name}, ${signalLabel(item.signal)}`}
                     >
                       <span className="ticker-cell">
-                        <span className="ticker-avatar">{item.symbol.slice(0, 2)}</span>
+                        <TickerLogo symbol={item.symbol} />
                         <span><strong>{item.symbol}</strong><small>{item.name}</small></span>
                       </span>
                       <span className={`signal-pill ${tone}`}>
