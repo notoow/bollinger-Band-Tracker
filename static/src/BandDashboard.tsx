@@ -278,6 +278,42 @@ function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
   );
 }
 
+function CommunityComments() {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    const script = document.createElement("script");
+    script.src = "https://utteranc.es/client.js";
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.setAttribute("repo", "notoow/bollinger-Band-Tracker");
+    script.setAttribute("issue-term", "pathname");
+    script.setAttribute("label", "community");
+    script.setAttribute("theme", "github-dark");
+
+    container.appendChild(script);
+  }, []);
+
+  return (
+    <section className="community-panel" id="community">
+      <div className="community-copy">
+        <p className="section-kicker">COMMUNITY</p>
+        <h2>시장 얘기 같이 보기</h2>
+        <p>
+          댓글은 GitHub Issues에 저장됩니다. GitHub 계정으로 로그인하면 신호, 종목, 전략 메모를
+          바로 남길 수 있어요.
+        </p>
+      </div>
+      <div className="comments-box" ref={containerRef} />
+    </section>
+  );
+}
+
 const marketDataUrl = `${import.meta.env.BASE_URL}data/market.json`;
 
 export function BandDashboard() {
@@ -288,7 +324,9 @@ export function BandDashboard() {
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterKey>("ALL");
   const [query, setQuery] = useState("");
-  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const [alertsEnabled, setAlertsEnabled] = useState(
+    () => typeof window !== "undefined" && window.localStorage.getItem("bandwatch-alerts") === "on",
+  );
   const [toast, setToast] = useState<string | null>(null);
 
   const load = useCallback(async (manual = false) => {
@@ -325,14 +363,13 @@ export function BandDashboard() {
   }, []);
 
   useEffect(() => {
-    void load();
+    const firstLoad = window.setTimeout(() => void load(), 0);
     const interval = window.setInterval(() => void load(), 15 * 60 * 1000);
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearTimeout(firstLoad);
+      window.clearInterval(interval);
+    };
   }, [load]);
-
-  useEffect(() => {
-    setAlertsEnabled(window.localStorage.getItem("bandwatch-alerts") === "on");
-  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -691,6 +728,8 @@ export function BandDashboard() {
           )}
         </aside>
       </section>
+
+      <CommunityComments />
 
       <footer>
         <div>

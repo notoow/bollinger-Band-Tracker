@@ -1166,6 +1166,41 @@ input:focus-visible {
   line-height: 1.6;
 }
 
+.community-panel {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.62fr) minmax(0, 1.38fr);
+  gap: 24px;
+  margin-top: 18px;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(11, 23, 38, 0.76);
+  backdrop-filter: blur(20px);
+}
+
+.community-copy h2 {
+  margin: 8px 0 12px;
+  font-size: 25px;
+  font-weight: 620;
+  letter-spacing: -0.04em;
+}
+
+.community-copy p:last-child {
+  max-width: 360px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+.comments-box {
+  min-height: 210px;
+}
+
+.comments-box iframe {
+  color-scheme: dark;
+}
+
 footer {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -1252,6 +1287,10 @@ footer p {
   .detail-panel > * {
     max-width: 700px;
     margin-inline: auto;
+  }
+
+  .community-panel {
+    grid-template-columns: 1fr;
   }
 }
 
