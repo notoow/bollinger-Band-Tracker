@@ -281,6 +281,9 @@ function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
 type GitHubIssue = {
   number: number;
   html_url: string;
+  title: string;
+  comments: number;
+  updated_at: string;
 };
 
 type GitHubIssueComment = {
@@ -291,7 +294,31 @@ type GitHubIssueComment = {
   user: {
     login: string;
   } | null;
+  issueTitle?: string;
 };
+
+type GitHubUser = {
+  login: string;
+};
+
+type GitHubDeviceCodeResponse = {
+  device_code: string;
+  user_code: string;
+  verification_uri: string;
+  verification_uri_complete?: string;
+  expires_in: number;
+  interval: number;
+};
+
+type GitHubAccessTokenResponse = {
+  access_token?: string;
+  error?: string;
+};
+
+const communityRepo = "notoow/bollinger-Band-Tracker";
+const communityWallIssueTitle = "BANDWATCH Community Wall";
+const githubTokenStorageKey = "bandwatch-github-token";
+const githubClientId = import.meta.env.VITE_GITHUB_CLIENT_ID as string | undefined;
 
 function commentPreview(body: string) {
   const text = body
@@ -307,66 +334,200 @@ function commentPreview(body: string) {
   return text.length > 220 ? `${text.slice(0, 220)}...` : text;
 }
 
-function issueTitle() {
-  if (typeof window === "undefined") return "/bollinger-Band-Tracker/";
-  return window.location.pathname || "/bollinger-Band-Tracker/";
+function githubHeaders(token?: string, hasBody = false) {
+  return {
+    Accept: "application/vnd.github+json",
+    ...(hasBody ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
 }
 
-function newCommunityIssueUrl(title: string) {
-  const params = new URLSearchParams({
-    labels: "community",
-    title,
-    body: "BANDWATCH 커뮤니티 댓글 스레드입니다. 시장 신호, 종목 메모, 전략 아이디어를 자유롭게 남겨주세요.",
+async function githubJson<T>(url: string, init: RequestInit = {}, token?: string) {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      ...githubHeaders(token, Boolean(init.body)),
+      ...init.headers,
+    },
   });
-  return `https://github.com/notoow/bollinger-Band-Tracker/issues/new?${params.toString()}`;
+
+  if (!response.ok) {
+    const message = response.status === 401 ? "GitHub login expired" : "GitHub request failed";
+    throw new Error(message);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function findCommunityIssues() {
+  const titleParams = new URLSearchParams({
+    q: `repo:${communityRepo} type:issue in:title "${communityWallIssueTitle}"`,
+    per_page: "1",
+  });
+  const labelParams = new URLSearchParams({
+    q: `repo:${communityRepo} type:issue label:community`,
+    sort: "updated",
+    order: "desc",
+    per_page: "10",
+  });
+
+  const [titleResult, labelResult] = await Promise.all([
+    githubJson<{ items?: GitHubIssue[] }>(`https://api.github.com/search/issues?${titleParams.toString()}`),
+    githubJson<{ items?: GitHubIssue[] }>(`https://api.github.com/search/issues?${labelParams.toString()}`),
+  ]);
+
+  const byNumber = new Map<number, GitHubIssue>();
+  for (const issue of [...(titleResult.items ?? []), ...(labelResult.items ?? [])]) {
+    byNumber.set(issue.number, issue);
+  }
+  return Array.from(byNumber.values()).filter((item) => item.comments > 0);
+}
+
+function getStoredGithubToken() {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(githubTokenStorageKey);
+}
+
+function setStoredGithubToken(token: string | null) {
+  if (typeof window === "undefined") return;
+  if (token) window.localStorage.setItem(githubTokenStorageKey, token);
+  else window.localStorage.removeItem(githubTokenStorageKey);
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function requestGithubDeviceToken(onStatus: (message: string) => void) {
+  if (!githubClientId) throw new Error("GitHub OAuth Client ID is missing");
+
+  const deviceResponse = await fetch("https://github.com/login/device/code", {
+    method: "POST",
+    headers: { Accept: "application/json" },
+    body: new URLSearchParams({
+      client_id: githubClientId,
+      scope: "public_repo",
+    }),
+  });
+
+  if (!deviceResponse.ok) throw new Error("GitHub login failed");
+
+  const device = (await deviceResponse.json()) as GitHubDeviceCodeResponse;
+  const authUrl = device.verification_uri_complete ?? device.verification_uri;
+  window.open(authUrl, "_blank", "noopener,noreferrer");
+  onStatus(`GitHub 인증 창에서 코드 ${device.user_code}를 확인해 주세요. 승인되면 자동으로 댓글이 올라갑니다.`);
+
+  let pollInterval = Math.max(device.interval || 5, 5) * 1000;
+  const expiresAt = Date.now() + device.expires_in * 1000;
+
+  while (Date.now() < expiresAt) {
+    await wait(pollInterval);
+
+    const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body: new URLSearchParams({
+        client_id: githubClientId,
+        device_code: device.device_code,
+        grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+      }),
+    });
+
+    if (!tokenResponse.ok) throw new Error("GitHub login failed");
+
+    const tokenResult = (await tokenResponse.json()) as GitHubAccessTokenResponse;
+    if (tokenResult.access_token) return tokenResult.access_token;
+    if (tokenResult.error === "authorization_pending") continue;
+    if (tokenResult.error === "slow_down") {
+      pollInterval += 5000;
+      continue;
+    }
+    throw new Error(tokenResult.error || "GitHub login failed");
+  }
+
+  throw new Error("GitHub login expired");
+}
+
+async function fetchGithubUser(token: string) {
+  return githubJson<GitHubUser>("https://api.github.com/user", {}, token);
+}
+
+async function ensureCommunityWallIssue(token: string) {
+  const searchParams = new URLSearchParams({
+    q: `repo:${communityRepo} type:issue in:title "${communityWallIssueTitle}"`,
+    per_page: "1",
+  });
+  const found = await githubJson<{ items?: GitHubIssue[] }>(
+    `https://api.github.com/search/issues?${searchParams.toString()}`,
+    {},
+    token,
+  );
+  const existing = found.items?.[0];
+  if (existing) return existing;
+
+  const issueBody = {
+    title: communityWallIssueTitle,
+    body: "BANDWATCH 웹 담벼락입니다. 사이트에서 작성한 댓글이 이 이슈의 댓글로 저장됩니다.",
+    labels: ["community"],
+  };
+
+  try {
+    return await githubJson<GitHubIssue>(
+      `https://api.github.com/repos/${communityRepo}/issues`,
+      { method: "POST", body: JSON.stringify(issueBody) },
+      token,
+    );
+  } catch {
+    return githubJson<GitHubIssue>(
+      `https://api.github.com/repos/${communityRepo}/issues`,
+      { method: "POST", body: JSON.stringify({ title: issueBody.title, body: issueBody.body }) },
+      token,
+    );
+  }
 }
 
 function CommunityComments() {
-  const [issue, setIssue] = useState<GitHubIssue | null>(null);
   const [comments, setComments] = useState<GitHubIssueComment[]>([]);
   const [loadingComments, setLoadingComments] = useState(true);
   const [commentsError, setCommentsError] = useState(false);
-  const [fallbackIssueUrl, setFallbackIssueUrl] = useState(
-    newCommunityIssueUrl("/bollinger-Band-Tracker/"),
-  );
+  const [draft, setDraft] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [githubUser, setGithubUser] = useState<string | null>(null);
 
   const loadComments = useCallback(async () => {
-    const title = issueTitle();
-    const repo = "notoow/bollinger-Band-Tracker";
-
     setLoadingComments(true);
     setCommentsError(false);
-    setFallbackIssueUrl(newCommunityIssueUrl(title));
 
     try {
-      const searchParams = new URLSearchParams({
-        q: `repo:${repo} type:issue label:community in:title "${title}"`,
-        per_page: "1",
-      });
-      const searchResponse = await fetch(`https://api.github.com/search/issues?${searchParams.toString()}`, {
-        headers: { Accept: "application/vnd.github+json" },
-      });
+      const issues = await findCommunityIssues();
 
-      if (!searchResponse.ok) throw new Error("GitHub issue search failed");
-
-      const searchResult = (await searchResponse.json()) as { items?: GitHubIssue[] };
-      const foundIssue = searchResult.items?.[0] ?? null;
-      setIssue(foundIssue);
-
-      if (!foundIssue) {
+      if (!issues.length) {
         setComments([]);
         return;
       }
 
-      const commentsResponse = await fetch(
-        `https://api.github.com/repos/${repo}/issues/${foundIssue.number}/comments?per_page=20`,
-        { headers: { Accept: "application/vnd.github+json" } },
+      const commentsByIssue = await Promise.all(
+        issues.map(async (item) => {
+          const commentsResponse = await fetch(
+            `https://api.github.com/repos/${communityRepo}/issues/${item.number}/comments?per_page=50`,
+            { headers: { Accept: "application/vnd.github+json" } },
+          );
+
+          if (!commentsResponse.ok) throw new Error("GitHub comments fetch failed");
+
+          const issueComments = (await commentsResponse.json()) as GitHubIssueComment[];
+          return issueComments.map((comment) => ({ ...comment, issueTitle: item.title }));
+        }),
       );
 
-      if (!commentsResponse.ok) throw new Error("GitHub comments fetch failed");
-
-      const issueComments = (await commentsResponse.json()) as GitHubIssueComment[];
-      setComments(issueComments.slice(-4).reverse());
+      setComments(
+        commentsByIssue
+          .flat()
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 50),
+      );
     } catch {
       setCommentsError(true);
     } finally {
@@ -379,7 +540,63 @@ function CommunityComments() {
     return () => window.clearTimeout(timer);
   }, [loadComments]);
 
-  const commentUrl = issue ? `${issue.html_url}#new_comment_field` : fallbackIssueUrl;
+  useEffect(() => {
+    const token = getStoredGithubToken();
+    if (!token) return;
+
+    void fetchGithubUser(token)
+      .then((user) => setGithubUser(user.login))
+      .catch(() => {
+        setStoredGithubToken(null);
+        setGithubUser(null);
+      });
+  }, []);
+
+  const submitComment = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const body = draft.trim();
+    if (!body || posting) return;
+
+    if (!githubClientId) {
+      setAuthMessage("GitHub OAuth Client ID 설정이 필요합니다. README의 커뮤니티 설정을 먼저 넣어주세요.");
+      return;
+    }
+
+    setPosting(true);
+    setAuthMessage(null);
+
+    try {
+      let token = getStoredGithubToken();
+      if (!token) {
+        token = await requestGithubDeviceToken(setAuthMessage);
+        setStoredGithubToken(token);
+      }
+
+      const user = await fetchGithubUser(token);
+      setGithubUser(user.login);
+      const issue = await ensureCommunityWallIssue(token);
+
+      await githubJson<GitHubIssueComment>(
+        `https://api.github.com/repos/${communityRepo}/issues/${issue.number}/comments`,
+        { method: "POST", body: JSON.stringify({ body }) },
+        token,
+      );
+
+      setDraft("");
+      setAuthMessage("댓글을 담벼락에 붙였습니다.");
+      await loadComments();
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("expired")) {
+        setStoredGithubToken(null);
+        setGithubUser(null);
+        setAuthMessage("GitHub 로그인이 만료됐습니다. 다시 한 번 눌러서 인증해 주세요.");
+      } else {
+        setAuthMessage("댓글 작성에 실패했습니다. GitHub 인증 또는 Issues 권한을 확인해 주세요.");
+      }
+    } finally {
+      setPosting(false);
+    }
+  };
 
   return (
     <section className="community-panel" id="community">
@@ -388,20 +605,52 @@ function CommunityComments() {
           <p className="section-kicker">COMMUNITY</p>
           <h2>시장 얘기 같이 보기</h2>
         </div>
-        <p>댓글은 GitHub Issues에 저장됩니다. 앱에서는 최근 댓글을 바로 읽고, 작성은 GitHub에서 이어집니다.</p>
+        <p>GitHub 계정으로 남긴 커뮤니티 댓글을 최신순으로 모아 보여줍니다.</p>
       </div>
       <div className="comments-box">
         <div className="comments-toolbar">
-          <span>{issue ? `Issue #${issue.number}` : "새 커뮤니티 스레드"}</span>
+          <span>{comments.length ? `최근 댓글 ${comments.length}개` : "최근 댓글"}</span>
           <div>
             <button type="button" onClick={() => void loadComments()} disabled={loadingComments}>
               {loadingComments ? "확인 중" : "새로고침"}
             </button>
-            <a href={commentUrl} target="_blank" rel="noreferrer">
-              {issue ? "댓글 남기기" : "첫 댓글 열기"}
-            </a>
           </div>
         </div>
+
+        <form className="comment-compose" onSubmit={submitComment}>
+          <textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            maxLength={1200}
+            placeholder={githubClientId ? "시장 생각, 종목 메모, 오늘의 밴드 해석을 편하게 남겨주세요." : "GitHub OAuth Client ID를 설정하면 여기서 바로 댓글을 쓸 수 있습니다."}
+            disabled={posting || !githubClientId}
+          />
+          <div className="comment-compose-footer">
+            <span>
+              {githubUser ? `@${githubUser}로 작성합니다.` : githubClientId ? "GitHub 계정으로 1회 인증 후 바로 작성됩니다." : "VITE_GITHUB_CLIENT_ID 설정이 필요합니다."}
+            </span>
+            <div>
+              {githubUser && (
+                <button
+                  type="button"
+                  className="comment-ghost-button"
+                  onClick={() => {
+                    setStoredGithubToken(null);
+                    setGithubUser(null);
+                    setAuthMessage("로그아웃했습니다.");
+                  }}
+                  disabled={posting}
+                >
+                  로그아웃
+                </button>
+              )}
+              <button type="submit" disabled={posting || !draft.trim() || !githubClientId}>
+                {posting ? "등록 중..." : githubUser ? "댓글 달기" : "GitHub 로그인하고 댓글 달기"}
+              </button>
+            </div>
+          </div>
+          {authMessage && <p className="comment-auth-message">{authMessage}</p>}
+        </form>
 
         {loadingComments ? (
           <div className="comment-skeleton" role="status">
@@ -417,20 +666,21 @@ function CommunityComments() {
         ) : comments.length ? (
           <div className="comment-list">
             {comments.map((comment) => (
-              <a className="comment-item" href={comment.html_url} target="_blank" rel="noreferrer" key={comment.id}>
+              <article className="comment-item" key={comment.id}>
                 <span className="comment-avatar">{comment.user?.login.slice(0, 1).toUpperCase() ?? "?"}</span>
                 <span>
                   <strong>{comment.user?.login ?? "GitHub user"}</strong>
                   <small>{fetchedTime(comment.created_at)}</small>
+                  {comment.issueTitle && <em>{comment.issueTitle}</em>}
                   <p>{commentPreview(comment.body)}</p>
                 </span>
-              </a>
+              </article>
             ))}
           </div>
         ) : (
           <div className="comment-empty">
-            <strong>아직 열린 댓글 스레드가 없습니다.</strong>
-            <p>첫 댓글을 열면 이 페이지 전용 GitHub Issue가 만들어지고, 이후 댓글이 여기 표시됩니다.</p>
+            <strong>아직 표시할 커뮤니티 댓글이 없습니다.</strong>
+            <p>커뮤니티 라벨이 붙은 GitHub 이슈 댓글이 생기면 이곳에 최신순으로 표시됩니다.</p>
           </div>
         )}
       </div>

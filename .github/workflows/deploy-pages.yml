@@ -45,6 +45,8 @@ jobs:
           ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
         run: node scripts/send-alerts.mjs
       - name: Build static dashboard
+        env:
+          VITE_GITHUB_CLIENT_ID: ${{ vars.VITE_GITHUB_CLIENT_ID }}
         run: npm run build:pages
       - name: Configure Pages
         uses: actions/configure-pages@v5
