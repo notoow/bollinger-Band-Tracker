@@ -34,6 +34,16 @@ jobs:
         env:
           TIINGO_API_TOKEN: ${{ secrets.TIINGO_API_TOKEN }}
         run: node scripts/generate-market-data.mjs
+      - name: Send configured breach alerts
+        env:
+          ALERTS_DELIVERY_ENABLED: ${{ github.event_name != 'push' && 'true' || 'false' }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+        run: node scripts/send-alerts.mjs
       - name: Build static dashboard
         run: npm run build:pages
       - name: Configure Pages

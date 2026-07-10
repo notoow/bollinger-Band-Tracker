@@ -1049,6 +1049,90 @@ input:focus-visible {
   margin-top: 14px;
 }
 
+.chart-range {
+  display: flex;
+  gap: 5px;
+  margin-top: 13px;
+}
+
+.chart-range button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 8px;
+  padding: 5px 7px;
+}
+
+.chart-range button.active {
+  border-color: rgba(120, 201, 239, 0.5);
+  background: rgba(120, 201, 239, 0.1);
+  color: var(--cyan);
+}
+
+.context-card {
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(120, 201, 239, 0.035);
+}
+
+.context-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.context-heading span {
+  color: var(--cyan);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 8px;
+  letter-spacing: 0.11em;
+}
+
+.context-heading strong {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+.context-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.context-grid > div span,
+.context-grid > div strong {
+  display: block;
+}
+
+.context-grid > div span {
+  color: var(--dim);
+  font-size: 9px;
+}
+
+.context-grid > div strong {
+  margin-top: 5px;
+  color: var(--ink);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 17px;
+}
+
+.context-grid p,
+.context-empty {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

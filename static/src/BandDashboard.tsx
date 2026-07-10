@@ -31,6 +31,12 @@ type MarketItem = {
     date: string;
     direction: "UPPER" | "LOWER";
   } | null;
+  statisticalContext?: {
+    horizonDays: number;
+    sampleSize: number;
+    eventRate: number;
+    medianReturn: number;
+  } | null;
   history: Array<{
     date: string;
     close: number;
@@ -123,6 +129,10 @@ function signed(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
+function markerPosition(item: MarketItem) {
+  return Math.min(92, Math.max(8, item.bandPositionPercent));
+}
+
 function koreanDate(date: string) {
   const parsed = new Date(`${date}T12:00:00Z`);
   return new Intl.DateTimeFormat("ko-KR", {
@@ -160,10 +170,12 @@ function detailSentence(item: MarketItem) {
 
 function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [range, setRange] = useState(65);
+  const visibleData = useMemo(() => data.slice(-range), [data, range]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || data.length < 2) return;
+    if (!canvas || visibleData.length < 2) return;
     const context = canvas.getContext("2d");
     if (!context) return;
 
@@ -178,7 +190,7 @@ function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
       context.clearRect(0, 0, width, height);
 
       const padding = { top: 13, right: 8, bottom: 22, left: 8 };
-      const values = data.flatMap((point) => [point.close, point.upperBand, point.lowerBand]);
+      const values = visibleData.flatMap((point) => [point.close, point.upperBand, point.lowerBand]);
       const rawMin = Math.min(...values);
       const rawMax = Math.max(...values);
       const range = Math.max(rawMax - rawMin, rawMax * 0.03, 1);
@@ -186,7 +198,7 @@ function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
       const max = rawMax + range * 0.1;
       const chartWidth = width - padding.left - padding.right;
       const chartHeight = height - padding.top - padding.bottom;
-      const x = (index: number) => padding.left + (index / (data.length - 1)) * chartWidth;
+      const x = (index: number) => padding.left + (index / (visibleData.length - 1)) * chartWidth;
       const y = (value: number) => padding.top + ((max - value) / (max - min)) * chartHeight;
 
       context.strokeStyle = "rgba(143, 160, 180, 0.15)";
@@ -200,13 +212,13 @@ function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
       }
 
       context.beginPath();
-      data.forEach((point, index) => {
+      visibleData.forEach((point, index) => {
         const pointX = x(index);
         const pointY = y(point.upperBand);
         index === 0 ? context.moveTo(pointX, pointY) : context.lineTo(pointX, pointY);
       });
-      for (let index = data.length - 1; index >= 0; index -= 1) {
-        context.lineTo(x(index), y(data[index].lowerBand));
+      for (let index = visibleData.length - 1; index >= 0; index -= 1) {
+        context.lineTo(x(index), y(visibleData[index].lowerBand));
       }
       context.closePath();
       context.fillStyle = "rgba(120, 201, 239, 0.09)";
@@ -215,7 +227,7 @@ function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
       const strokeSeries = (key: "upperBand" | "lowerBand" | "sma" | "close", color: string, width: number, dash: number[] = []) => {
         context.beginPath();
         context.setLineDash(dash);
-        data.forEach((point, index) => {
+        visibleData.forEach((point, index) => {
           const pointX = x(index);
           const pointY = y(point[key]);
           index === 0 ? context.moveTo(pointX, pointY) : context.lineTo(pointX, pointY);
@@ -231,9 +243,9 @@ function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
       strokeSeries("sma", "rgba(143, 160, 180, 0.62)", 1, [4, 4]);
       strokeSeries("close", "#c8f55a", 2.25);
 
-      const latest = data.at(-1)!;
+      const latest = visibleData.at(-1)!;
       context.beginPath();
-      context.arc(x(data.length - 1), y(latest.close), 4, 0, Math.PI * 2);
+      context.arc(x(visibleData.length - 1), y(latest.close), 4, 0, Math.PI * 2);
       context.fillStyle = "#c8f55a";
       context.fill();
       context.strokeStyle = "#07111e";
@@ -243,7 +255,7 @@ function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
       context.fillStyle = "#637287";
       context.font = "9px var(--font-geist-mono), monospace";
       context.textAlign = "left";
-      context.fillText(koreanDate(data[0].date), padding.left, height - 5);
+      context.fillText(koreanDate(visibleData[0].date), padding.left, height - 5);
       context.textAlign = "right";
       context.fillText(koreanDate(latest.date), width - padding.right, height - 5);
     };
@@ -252,9 +264,18 @@ function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
     observer.observe(canvas);
     draw();
     return () => observer.disconnect();
-  }, [data]);
+  }, [visibleData]);
 
-  return <canvas ref={canvasRef} className="history-canvas" aria-label="최근 90거래일 볼린저밴드 차트" role="img" />;
+  return (
+    <>
+      <div className="chart-range" aria-label="차트 기간 선택">
+        {[{ label: "1M", days: 22 }, { label: "3M", days: 65 }, { label: "6M", days: 130 }, { label: "1Y", days: 252 }].map((option) => (
+          <button key={option.days} type="button" className={range === option.days ? "active" : ""} onClick={() => setRange(option.days)}>{option.label}</button>
+        ))}
+      </div>
+      <canvas ref={canvasRef} className="history-canvas" aria-label="볼린저 밴드 이력 차트" role="img" />
+    </>
+  );
 }
 
 const marketDataUrl = `${import.meta.env.BASE_URL}data/market.json`;
@@ -603,7 +624,7 @@ export function BandDashboard() {
                   <span className="track-mid" />
                   <span
                     className={`price-marker ${signalTone(selected.signal)}`}
-                    style={{ left: `${Math.min(104, Math.max(-4, selected.bandPositionPercent))}%` }}
+                    style={{ left: `${markerPosition(selected)}%` }}
                   >
                     <i />
                     <b>{money(selected.close)}</b>
@@ -619,7 +640,7 @@ export function BandDashboard() {
               <div className="history-section">
                 <div className="history-heading">
                   <div>
-                    <span>90D BAND HISTORY</span>
+                    <span>BAND HISTORY</span>
                     <strong>종가 · 20일선 · 상하단 밴드</strong>
                   </div>
                   <a
@@ -632,6 +653,26 @@ export function BandDashboard() {
                 </div>
                 <BandHistoryChart data={selected.history} />
               </div>
+
+              <section className="context-card" aria-label="통계 참고">
+                <div className="context-heading">
+                  <span>STATISTICAL CONTEXT</span>
+                  <strong>통계 참고 · 투자 추천 아님</strong>
+                </div>
+                {selected.statisticalContext ? (
+                  <div className="context-grid">
+                    <div>
+                      <span>{selected.signal.includes("NEAR") ? `${selected.statisticalContext.horizonDays}일 내 이탈` : `${selected.statisticalContext.horizonDays}일 내 밴드 복귀`}</span>
+                      <strong>{selected.statisticalContext.eventRate.toFixed(0)}%</strong>
+                    </div>
+                    <div>
+                      <span>{selected.statisticalContext.horizonDays}일 중앙 수익률</span>
+                      <strong className={selected.statisticalContext.medianReturn >= 0 ? "positive" : "negative"}>{signed(selected.statisticalContext.medianReturn)}</strong>
+                    </div>
+                    <p>최근 약 1년의 유사 구간 {selected.statisticalContext.sampleSize}회를 비교한 결과입니다. 미래를 예측하거나 매수·매도를 권유하지 않습니다.</p>
+                  </div>
+                ) : <p className="context-empty">유사 구간 표본이 3회 미만이라 통계 값을 표시하지 않습니다.</p>}
+              </section>
 
               <div className="metric-grid">
                 <div><span>밴드 폭</span><strong>{(((selected.upperBand - selected.lowerBand) / selected.sma) * 100).toFixed(2)}%</strong></div>

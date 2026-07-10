@@ -45,6 +45,51 @@ function pointFor(bars, index) {
   return { ...bars[index], sma, standardDeviation, upperBand, lowerBand, state, bandPosition };
 }
 
+function median(values) {
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function historicalContext(series, signal) {
+  const horizonDays = 5;
+  const start = Math.max(PERIOD - 1, series.length - 260);
+  const samples = [];
+
+  for (let index = start; index < series.length - horizonDays; index += 1) {
+    const point = series[index];
+    if (point.state === "INSUFFICIENT") continue;
+    const upperGap = ((point.upperBand - point.close) / Math.abs(point.upperBand)) * 100;
+    const lowerGap = ((point.close - point.lowerBand) / Math.abs(point.lowerBand)) * 100;
+    const matches =
+      (signal === "UPPER_BREAK" && point.state === "UPPER_BREACH") ||
+      (signal === "LOWER_BREAK" && point.state === "LOWER_BREACH") ||
+      (signal === "NEAR_UPPER" && point.state === "INSIDE" && upperGap >= 0 && upperGap <= 1) ||
+      (signal === "NEAR_LOWER" && point.state === "INSIDE" && lowerGap >= 0 && lowerGap <= 1);
+    if (!matches) continue;
+
+    const nextPoints = series.slice(index + 1, index + horizonDays + 1);
+    const outcome =
+      signal === "UPPER_BREAK" || signal === "LOWER_BREAK"
+        ? nextPoints.some((candidate) => candidate.state === "INSIDE")
+        : nextPoints.some((candidate) =>
+            signal === "NEAR_UPPER"
+              ? candidate.state === "UPPER_BREACH"
+              : candidate.state === "LOWER_BREACH",
+          );
+    const returnPercent = ((series[index + horizonDays].close - point.close) / point.close) * 100;
+    samples.push({ outcome, returnPercent });
+  }
+
+  if (samples.length < 3) return null;
+  return {
+    horizonDays,
+    sampleSize: samples.length,
+    eventRate: (samples.filter((sample) => sample.outcome).length / samples.length) * 100,
+    medianReturn: median(samples.map((sample) => sample.returnPercent)),
+  };
+}
+
 function analyze(input) {
   const bars = normalizedBars(input);
   if (bars.length < PERIOD) return null;
@@ -91,7 +136,7 @@ function analyze(input) {
     bars,
     history: series
       .filter((point) => point.state !== "INSUFFICIENT")
-      .slice(-90)
+      .slice(-260)
       .map(({ date, close, sma, upperBand, lowerBand }) => ({ date, close, sma, upperBand, lowerBand })),
     analysis: {
       ...latest,
@@ -101,6 +146,7 @@ function analyze(input) {
       isContinuingBreach: isBreach && !isNewBreach,
       currentRunStart,
       lastBreachEvent,
+      statisticalContext: historicalContext(series, signal),
     },
   };
 }
@@ -184,6 +230,7 @@ async function buildItem(stock, token) {
       currentRunStart: analysis.currentRunStart,
       lastBreachEvent: analysis.lastBreachEvent,
       history: result.history,
+      statisticalContext: analysis.statisticalContext,
     },
     error,
   };

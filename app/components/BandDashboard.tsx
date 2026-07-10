@@ -31,6 +31,12 @@ type MarketItem = {
     date: string;
     direction: "UPPER" | "LOWER";
   } | null;
+  statisticalContext?: {
+    horizonDays: number;
+    sampleSize: number;
+    eventRate: number;
+    medianReturn: number;
+  } | null;
   history: Array<{
     date: string;
     close: number;
@@ -117,6 +123,10 @@ function money(value: number) {
 
 function signed(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function markerPosition(item: MarketItem) {
+  return Math.min(92, Math.max(8, item.bandPositionPercent));
 }
 
 function koreanDate(date: string) {
@@ -593,7 +603,7 @@ export function BandDashboard() {
                   <span className="track-mid" />
                   <span
                     className={`price-marker ${signalTone(selected.signal)}`}
-                    style={{ left: `${Math.min(104, Math.max(-4, selected.bandPositionPercent))}%` }}
+                    style={{ left: `${markerPosition(selected)}%` }}
                   >
                     <i />
                     <b>{money(selected.close)}</b>
@@ -608,11 +618,31 @@ export function BandDashboard() {
 
               <div className="history-section">
                 <div className="history-heading">
-                  <div><span>90D BAND HISTORY</span><strong>종가 · 20일선 · 상하단 밴드</strong></div>
+                  <div><span>BAND HISTORY</span><strong>종가 · 20일선 · 상하단 밴드</strong></div>
                   <a href={`https://finance.yahoo.com/quote/${selected.symbol}/chart`} target="_blank" rel="noreferrer">전체 차트 ↗</a>
                 </div>
                 <BandHistoryChart data={selected.history} />
               </div>
+
+              <section className="context-card" aria-label="통계 참고">
+                <div className="context-heading">
+                  <span>STATISTICAL CONTEXT</span>
+                  <strong>통계 참고 · 투자 추천 아님</strong>
+                </div>
+                {selected.statisticalContext ? (
+                  <div className="context-grid">
+                    <div>
+                      <span>{selected.signal.includes("NEAR") ? `${selected.statisticalContext.horizonDays}일 내 이탈` : `${selected.statisticalContext.horizonDays}일 내 밴드 복귀`}</span>
+                      <strong>{selected.statisticalContext.eventRate.toFixed(0)}%</strong>
+                    </div>
+                    <div>
+                      <span>{selected.statisticalContext.horizonDays}일 중앙 수익률</span>
+                      <strong className={selected.statisticalContext.medianReturn >= 0 ? "positive" : "negative"}>{signed(selected.statisticalContext.medianReturn)}</strong>
+                    </div>
+                    <p>최근 약 1년의 유사 구간 {selected.statisticalContext.sampleSize}회를 비교한 결과입니다. 미래를 예측하거나 매수·매도를 권유하지 않습니다.</p>
+                  </div>
+                ) : <p className="context-empty">유사 구간 표본이 3회 미만이라 통계 값을 표시하지 않습니다.</p>}
+              </section>
 
               <div className="metric-grid">
                 <div><span>밴드 폭</span><strong>{(((selected.upperBand - selected.lowerBand) / selected.sma) * 100).toFixed(2)}%</strong></div>

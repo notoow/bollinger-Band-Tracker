@@ -28,6 +28,16 @@ npm run dev
 
 `.env.local`의 `TIINGO_API_TOKEN`에 본인의 Tiingo API 토큰을 입력하세요. 토큰이 없으면 앱은 데모 데이터로 실행됩니다. 토큰은 브라우저로 전달되지 않고 서버에서만 사용됩니다.
 
+## 알림 채널
+
+GitHub Pages 배포는 새 볼린저 이탈을 발견했을 때, GitHub Actions에 등록된 채널로 알림을 보냅니다. 필요한 채널만 GitHub 저장소의 `Settings → Secrets and variables → Actions`에 추가하면 됩니다.
+
+- Telegram: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+- Discord: `DISCORD_WEBHOOK_URL`
+- Email (Resend): `RESEND_API_KEY`, `ALERT_EMAIL_FROM`, `ALERT_EMAIL_TO`
+
+한 개 또는 세 채널 모두를 동시에 사용할 수 있습니다. 페이지 푸시 때는 중복 전송을 막고, 예약 실행 또는 수동 실행에서만 신규 이탈 알림을 발송합니다.
+
 ## 확인
 
 ```bash
