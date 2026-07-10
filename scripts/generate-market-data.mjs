@@ -89,6 +89,10 @@ function analyze(input) {
   }
   return {
     bars,
+    history: series
+      .filter((point) => point.state !== "INSUFFICIENT")
+      .slice(-90)
+      .map(({ date, close, sma, upperBand, lowerBand }) => ({ date, close, sma, upperBand, lowerBand })),
     analysis: {
       ...latest,
       signal,
@@ -179,6 +183,7 @@ async function buildItem(stock, token) {
       distancePercent: analysis.distancePercent,
       currentRunStart: analysis.currentRunStart,
       lastBreachEvent: analysis.lastBreachEvent,
+      history: result.history,
     },
     error,
   };

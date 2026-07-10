@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Signal =
   | "UPPER_BREAK"
@@ -31,6 +31,13 @@ type MarketItem = {
     date: string;
     direction: "UPPER" | "LOWER";
   } | null;
+  history: Array<{
+    date: string;
+    close: number;
+    sma: number;
+    upperBand: number;
+    lowerBand: number;
+  }>;
 };
 
 type MarketPayload = {
@@ -145,6 +152,101 @@ function detailSentence(item: MarketItem) {
     return `하단 밴드까지 ${Math.abs(item.distancePercent).toFixed(2)}% 남았습니다.`;
   }
   return "현재 종가는 볼린저밴드 정상 범위 안에 있습니다.";
+}
+
+function BandHistoryChart({ data }: { data: MarketItem["history"] }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || data.length < 2) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const draw = () => {
+      const bounds = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(1, Math.floor(bounds.width));
+      const height = 188;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      context.clearRect(0, 0, width, height);
+
+      const padding = { top: 13, right: 8, bottom: 22, left: 8 };
+      const values = data.flatMap((point) => [point.close, point.upperBand, point.lowerBand]);
+      const rawMin = Math.min(...values);
+      const rawMax = Math.max(...values);
+      const range = Math.max(rawMax - rawMin, rawMax * 0.03, 1);
+      const min = rawMin - range * 0.1;
+      const max = rawMax + range * 0.1;
+      const chartWidth = width - padding.left - padding.right;
+      const chartHeight = height - padding.top - padding.bottom;
+      const x = (index: number) => padding.left + (index / (data.length - 1)) * chartWidth;
+      const y = (value: number) => padding.top + ((max - value) / (max - min)) * chartHeight;
+
+      context.strokeStyle = "rgba(143, 160, 180, 0.15)";
+      context.lineWidth = 1;
+      for (let row = 1; row < 4; row += 1) {
+        const lineY = padding.top + (chartHeight / 4) * row;
+        context.beginPath();
+        context.moveTo(padding.left, lineY);
+        context.lineTo(width - padding.right, lineY);
+        context.stroke();
+      }
+
+      context.beginPath();
+      data.forEach((point, index) => {
+        const pointX = x(index);
+        const pointY = y(point.upperBand);
+        index === 0 ? context.moveTo(pointX, pointY) : context.lineTo(pointX, pointY);
+      });
+      for (let index = data.length - 1; index >= 0; index -= 1) context.lineTo(x(index), y(data[index].lowerBand));
+      context.closePath();
+      context.fillStyle = "rgba(120, 201, 239, 0.09)";
+      context.fill();
+
+      const strokeSeries = (key: "upperBand" | "lowerBand" | "sma" | "close", color: string, width: number, dash: number[] = []) => {
+        context.beginPath();
+        context.setLineDash(dash);
+        data.forEach((point, index) => {
+          const pointX = x(index);
+          const pointY = y(point[key]);
+          index === 0 ? context.moveTo(pointX, pointY) : context.lineTo(pointX, pointY);
+        });
+        context.strokeStyle = color;
+        context.lineWidth = width;
+        context.stroke();
+        context.setLineDash([]);
+      };
+
+      strokeSeries("upperBand", "rgba(120, 201, 239, 0.58)", 1);
+      strokeSeries("lowerBand", "rgba(120, 201, 239, 0.58)", 1);
+      strokeSeries("sma", "rgba(143, 160, 180, 0.62)", 1, [4, 4]);
+      strokeSeries("close", "#c8f55a", 2.25);
+      const latest = data.at(-1)!;
+      context.beginPath();
+      context.arc(x(data.length - 1), y(latest.close), 4, 0, Math.PI * 2);
+      context.fillStyle = "#c8f55a";
+      context.fill();
+      context.strokeStyle = "#07111e";
+      context.lineWidth = 2;
+      context.stroke();
+      context.fillStyle = "#637287";
+      context.font = "9px var(--font-geist-mono), monospace";
+      context.textAlign = "left";
+      context.fillText(koreanDate(data[0].date), padding.left, height - 5);
+      context.textAlign = "right";
+      context.fillText(koreanDate(latest.date), width - padding.right, height - 5);
+    };
+
+    const observer = new ResizeObserver(draw);
+    observer.observe(canvas);
+    draw();
+    return () => observer.disconnect();
+  }, [data]);
+
+  return <canvas ref={canvasRef} className="history-canvas" aria-label="최근 90거래일 볼린저밴드 차트" role="img" />;
 }
 
 export function BandDashboard() {
@@ -502,6 +604,14 @@ export function BandDashboard() {
                   <strong>{money(selected.sma)}</strong>
                   <strong>{money(selected.upperBand)}</strong>
                 </div>
+              </div>
+
+              <div className="history-section">
+                <div className="history-heading">
+                  <div><span>90D BAND HISTORY</span><strong>종가 · 20일선 · 상하단 밴드</strong></div>
+                  <a href={`https://finance.yahoo.com/quote/${selected.symbol}/chart`} target="_blank" rel="noreferrer">전체 차트 ↗</a>
+                </div>
+                <BandHistoryChart data={selected.history} />
               </div>
 
               <div className="metric-grid">

@@ -1,4 +1,9 @@
-import { analyzeBars, type BandAnalysis, type PriceBar } from "@/lib/bollinger";
+import {
+  analyzeBars,
+  calculateBollingerSeries,
+  type BandAnalysis,
+  type PriceBar,
+} from "@/lib/bollinger";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +102,16 @@ function toMarketItem(
           direction: analysis.lastBreachEvent.state === "UPPER_BREACH" ? ("UPPER" as const) : ("LOWER" as const),
         }
       : null,
+    history: calculateBollingerSeries(bars, PERIOD, MULTIPLIER)
+      .filter((point) => point.state !== "INSUFFICIENT")
+      .slice(-90)
+      .map(({ date, close, sma, upperBand, lowerBand }) => ({
+        date,
+        close,
+        sma: sma!,
+        upperBand: upperBand!,
+        lowerBand: lowerBand!,
+      })),
   };
 }
 
