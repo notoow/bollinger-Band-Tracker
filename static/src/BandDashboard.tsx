@@ -134,6 +134,24 @@ function chartSymbol(symbol: string) {
   return symbol === "VIX" ? "%5EVIX" : symbol;
 }
 
+function vixRegime(value: number | null | undefined) {
+  if (!Number.isFinite(value)) return { label: "LOADING", className: "vix-loading" };
+  if (value >= 30) return { label: "PANIC", className: "vix-panic" };
+  if (value >= 25) return { label: "FEAR", className: "vix-fear" };
+  if (value >= 20) return { label: "WATCH", className: "vix-watch" };
+  if (value >= 15) return { label: "NORMAL", className: "vix-normal" };
+  return { label: "CALM", className: "vix-calm" };
+}
+
+function vixBandRead(item: MarketItem | null | undefined) {
+  if (!item) return "공포지수 연결 중";
+  if (item.signal === "UPPER_BREAK") return "공포가 상단 밴드를 돌파";
+  if (item.signal === "LOWER_BREAK") return "공포가 하단 밴드 아래";
+  if (item.signal === "NEAR_UPPER") return "공포 상단 근접";
+  if (item.signal === "NEAR_LOWER") return "공포 하단 근접";
+  return "공포지수 정상 밴드 안";
+}
+
 function signed(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
@@ -845,6 +863,10 @@ export function BandDashboard() {
     );
   }, [sortedItems]);
 
+  const vixItem = sortedItems.find((item) => item.symbol === "VIX") ?? null;
+  const vixMood = vixRegime(vixItem?.close);
+  const vixPosition = vixItem ? Math.min(100, Math.max(0, vixItem.bandPositionPercent)) : 50;
+
   return (
     <main className="dashboard-shell">
       <div className="ambient ambient-one" />
@@ -874,7 +896,28 @@ export function BandDashboard() {
         </div>
       </header>
 
-      <section className="hero" id="top">
+      <section className={`hero ${vixMood.className}`} id="top">
+        <div className="hero-vix-backdrop" aria-label={vixItem ? `VIX ${quoteValue(vixItem.close, vixItem.kind)} ${vixMood.label}` : "VIX loading"}>
+          <div className="vix-backdrop-header">
+            <span>VIX FEAR INDEX</span>
+            <strong>{vixMood.label}</strong>
+          </div>
+          <div className="vix-backdrop-value">
+            <span>VIX</span>
+            <strong>{vixItem ? quoteValue(vixItem.close, vixItem.kind) : "—"}</strong>
+          </div>
+          <div className="vix-backdrop-meta">
+            <span className={vixItem && vixItem.changePercent >= 0 ? "positive" : "negative"}>
+              {vixItem ? signed(vixItem.changePercent) : "—"}
+            </span>
+            <span>{vixBandRead(vixItem)}</span>
+            <span>{vixItem ? `${koreanDate(vixItem.date)} 종가` : "데이터 연결 중"}</span>
+          </div>
+          <div className="vix-backdrop-meter" aria-hidden="true">
+            <i />
+            <b style={{ left: `${vixPosition}%` }} />
+          </div>
+        </div>
         <div className="hero-copy">
           <p className="eyebrow">US MARKET · DAILY CLOSE</p>
           <h1>밴드 이탈만,<br /><span>빠르게.</span></h1>
