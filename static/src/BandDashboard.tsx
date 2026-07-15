@@ -822,9 +822,11 @@ export function BandDashboard() {
     }
   };
 
+  const vixItem = useMemo(() => payload?.items.find((item) => item.symbol === "VIX") ?? null, [payload]);
+
   const sortedItems = useMemo(() => {
     if (!payload) return [];
-    return [...payload.items].sort((a, b) => {
+    return payload.items.filter((item) => item.symbol !== "VIX").sort((a, b) => {
       if (a.isNewBreach !== b.isNewBreach) return a.isNewBreach ? -1 : 1;
       return SIGNAL_PRIORITY[a.signal] - SIGNAL_PRIORITY[b.signal];
     });
@@ -863,7 +865,6 @@ export function BandDashboard() {
     );
   }, [sortedItems]);
 
-  const vixItem = sortedItems.find((item) => item.symbol === "VIX") ?? null;
   const vixMood = vixRegime(vixItem?.close);
   const vixPosition = vixItem ? Math.min(100, Math.max(0, vixItem.bandPositionPercent)) : 50;
 
@@ -896,28 +897,7 @@ export function BandDashboard() {
         </div>
       </header>
 
-      <section className={`hero ${vixMood.className}`} id="top">
-        <div className="hero-vix-backdrop" aria-label={vixItem ? `VIX ${quoteValue(vixItem.close, vixItem.kind)} ${vixMood.label}` : "VIX loading"}>
-          <div className="vix-backdrop-header">
-            <span>VIX FEAR INDEX</span>
-            <strong>{vixMood.label}</strong>
-          </div>
-          <div className="vix-backdrop-value">
-            <span>VIX</span>
-            <strong>{vixItem ? quoteValue(vixItem.close, vixItem.kind) : "—"}</strong>
-          </div>
-          <div className="vix-backdrop-meta">
-            <span className={vixItem && vixItem.changePercent >= 0 ? "positive" : "negative"}>
-              {vixItem ? signed(vixItem.changePercent) : "—"}
-            </span>
-            <span>{vixBandRead(vixItem)}</span>
-            <span>{vixItem ? `${koreanDate(vixItem.date)} 종가` : "데이터 연결 중"}</span>
-          </div>
-          <div className="vix-backdrop-meter" aria-hidden="true">
-            <i />
-            <b style={{ left: `${vixPosition}%` }} />
-          </div>
-        </div>
+      <section className="hero" id="top">
         <div className="hero-copy">
           <p className="eyebrow">US MARKET · DAILY CLOSE</p>
           <h1>밴드 이탈만,<br /><span>빠르게.</span></h1>
@@ -977,6 +957,28 @@ export function BandDashboard() {
       </section>
 
       <section className="workspace">
+        <section className={`vix-strip ${vixMood.className}`} aria-label="VIX 공포지수 요약">
+          <div className="vix-strip-main">
+            <span>VIX FEAR INDEX</span>
+            <strong>{vixItem ? quoteValue(vixItem.close, vixItem.kind) : "—"}</strong>
+            <em>{vixMood.label}</em>
+          </div>
+          <div className="vix-strip-read">
+            <strong>{vixBandRead(vixItem)}</strong>
+            <span>{vixItem ? `${koreanDate(vixItem.date)} 종가 · ${signed(vixItem.changePercent)}` : "데이터 연결 중"}</span>
+          </div>
+          <div className="vix-strip-meter" aria-hidden="true">
+            <i />
+            <b style={{ left: `${vixPosition}%` }} />
+          </div>
+          <div className="vix-strip-scale" aria-hidden="true">
+            <span>CALM</span>
+            <span>NORMAL</span>
+            <span>WATCH</span>
+            <span>FEAR</span>
+          </div>
+        </section>
+
         <div className="watchlist-panel">
           <div className="section-heading">
             <div>
