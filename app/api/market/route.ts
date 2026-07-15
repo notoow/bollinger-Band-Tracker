@@ -10,10 +10,12 @@ export const dynamic = "force-dynamic";
 const PERIOD = 20;
 const MULTIPLIER = 2;
 const CACHE_TTL_MS = 15 * 60 * 1000;
+const VIX_HISTORY_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv";
 
 const WATCHLIST = [
   { symbol: "VOO", name: "Vanguard S&P 500 ETF", kind: "ETF" as const, base: 610 },
   { symbol: "SPY", name: "SPDR S&P 500 ETF", kind: "ETF" as const, base: 665 },
+  { symbol: "VIX", name: "Cboe Volatility Index", kind: "INDEX" as const, base: 17 },
   { symbol: "GOOGL", name: "알파벳 Class A", kind: "STOCK" as const, base: 215 },
   { symbol: "GOOG", name: "알파벳 Class C", kind: "STOCK" as const, base: 216 },
   { symbol: "AAPL", name: "애플", kind: "STOCK" as const, base: 255 },
@@ -159,6 +161,36 @@ async function fetchTiingoBars(symbol: string, token: string): Promise<PriceBar[
   return bars.sort((left, right) => left.date.localeCompare(right.date));
 }
 
+function parseCboeDate(value: string) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+  if (!match) return null;
+  const [, month, day, year] = match;
+  return `${year}-${month}-${day}`;
+}
+
+async function fetchVixBars(): Promise<PriceBar[]> {
+  const response = await fetch(VIX_HISTORY_URL, {
+    headers: { Accept: "text/csv" },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) throw new Error(`Cboe HTTP ${response.status}`);
+  const csv = await response.text();
+  const bars = csv
+    .trim()
+    .split(/\r?\n/)
+    .slice(1)
+    .flatMap((line) => {
+      const [date, , , , close] = line.split(",");
+      const normalizedDate = parseCboeDate(date);
+      const closeValue = Number(close);
+      return normalizedDate && Number.isFinite(closeValue) ? [{ date: normalizedDate, close: closeValue }] : [];
+    })
+    .slice(-320);
+
+  if (bars.length < PERIOD) throw new Error("VIX history is insufficient.");
+  return bars.sort((left, right) => left.date.localeCompare(right.date));
+}
+
 function tradingDates(count: number) {
   const result: string[] = [];
   const cursor = new Date();
@@ -180,8 +212,8 @@ function symbolSeed(symbol: string) {
 function demoBars(stock: (typeof WATCHLIST)[number]): PriceBar[] {
   const dates = tradingDates(180);
   const seed = symbolSeed(stock.symbol);
-  const volatility = stock.symbol === "TSLA" || stock.symbol === "NVDA" ? 0.024 : 0.013;
-  const drift = ((seed % 7) - 2) * 0.00008 + 0.00033;
+  const volatility = stock.symbol === "VIX" ? 0.06 : stock.symbol === "TSLA" || stock.symbol === "NVDA" ? 0.024 : 0.013;
+  const drift = stock.symbol === "VIX" ? 0 : ((seed % 7) - 2) * 0.00008 + 0.00033;
   const bars = dates.map((date, index) => {
     const cycle = Math.sin(index * 0.19 + seed) * volatility;
     const micro = Math.sin(index * 0.57 + seed * 0.2) * volatility * 0.24;
@@ -197,6 +229,7 @@ function demoBars(stock: (typeof WATCHLIST)[number]): PriceBar[] {
     NVDA: 1.13,
     META: 1.055,
     MSFT: 1.07,
+    VIX: 1.18,
   };
   if (shocks[stock.symbol]) bars[finalIndex].close = Number((previous * shocks[stock.symbol]).toFixed(4));
 
@@ -210,7 +243,7 @@ function latestDate(items: MarketItem[]) {
 async function livePayload(token: string): Promise<MarketPayload> {
   const settled = await Promise.allSettled(
     WATCHLIST.map(async (stock) => {
-      const bars = await fetchTiingoBars(stock.symbol, token);
+      const bars = stock.symbol === "VIX" ? await fetchVixBars() : await fetchTiingoBars(stock.symbol, token);
       const analysis = analyzeBars(bars, PERIOD, MULTIPLIER);
       if (!analysis) throw new Error("볼린저밴드 계산에 필요한 종가가 부족합니다.");
       return toMarketItem(stock, bars, analysis);
@@ -237,7 +270,7 @@ async function livePayload(token: string): Promise<MarketPayload> {
 
   return {
     source: "tiingo",
-    sourceLabel: "TIINGO EOD",
+    sourceLabel: "TIINGO + CBOE EOD",
     isDemo: false,
     fetchedAt: new Date().toISOString(),
     asOf: latestDate(items),

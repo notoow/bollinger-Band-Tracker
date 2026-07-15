@@ -1,10 +1,11 @@
 # BANDWATCH
 
-VOO, SPY와 미국 대형주 8개 종목의 볼린저밴드 상·하단 이탈을 추적하는 한국어 웹 대시보드입니다.
+VOO, SPY, VIX 공포지수와 미국 대형주 8개 종목의 볼린저밴드 상·하단 이탈을 추적하는 한국어 웹 대시보드입니다.
 
 ## 추적 종목
 
 - ETF: `VOO`, `SPY`
+- 지수: `VIX`
 - 주식: `GOOGL`, `GOOG`, `AAPL`, `AMZN`, `META`, `TSLA`, `NVDA`, `MSFT`
 
 ## 판정 기준

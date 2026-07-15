@@ -42,7 +42,7 @@ test("server-renders the BANDWATCH dashboard", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });
 
-test("market endpoint returns ten safe demo analyses without a token", async () => {
+test("market endpoint returns eleven safe demo analyses without a token", async () => {
   const builtWorker = await worker();
   const response = await builtWorker.fetch(
     new Request("http://localhost/api/market", { headers: { accept: "application/json" } }),
@@ -53,10 +53,10 @@ test("market endpoint returns ten safe demo analyses without a token", async () 
   assert.equal(response.status, 200);
   const payload = await response.json();
   assert.equal(payload.source, "demo");
-  assert.equal(payload.items.length, 10);
+  assert.equal(payload.items.length, 11);
   assert.deepEqual(
     payload.items.map((item) => item.symbol).sort(),
-    ["AAPL", "AMZN", "GOOG", "GOOGL", "META", "MSFT", "NVDA", "SPY", "TSLA", "VOO"],
+    ["AAPL", "AMZN", "GOOG", "GOOGL", "META", "MSFT", "NVDA", "SPY", "TSLA", "VIX", "VOO"],
   );
   assert.ok(payload.items.every((item) => Number.isFinite(item.upperBand)));
   assert.ok(payload.items.some((item) => item.signal === "UPPER_BREAK"));

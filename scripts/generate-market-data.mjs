@@ -4,10 +4,12 @@ import { resolve } from "node:path";
 const PERIOD = 20;
 const MULTIPLIER = 2;
 const outputFile = resolve("static/public/data/market.json");
+const VIX_HISTORY_URL = "https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv";
 
 const watchlist = [
   ["VOO", "Vanguard S&P 500 ETF", "ETF", 610],
   ["SPY", "SPDR S&P 500 ETF", "ETF", 665],
+  ["VIX", "Cboe Volatility Index", "INDEX", 17],
   ["GOOGL", "알파벳 Class A", "STOCK", 215],
   ["GOOG", "알파벳 Class C", "STOCK", 216],
   ["AAPL", "애플", "STOCK", 255],
@@ -165,8 +167,8 @@ function tradingDates(count) {
 function demoBars(stock) {
   const dates = tradingDates(180);
   const seed = [...stock.symbol].reduce((sum, character) => sum + character.charCodeAt(0), 0);
-  const volatility = stock.symbol === "TSLA" || stock.symbol === "NVDA" ? 0.024 : 0.013;
-  const drift = ((seed % 7) - 2) * 0.00008 + 0.00033;
+  const volatility = stock.symbol === "VIX" ? 0.06 : stock.symbol === "TSLA" || stock.symbol === "NVDA" ? 0.024 : 0.013;
+  const drift = stock.symbol === "VIX" ? 0 : ((seed % 7) - 2) * 0.00008 + 0.00033;
   const bars = dates.map((date, index) => {
     const cycle = Math.sin(index * 0.19 + seed) * volatility;
     const micro = Math.sin(index * 0.57 + seed * 0.2) * volatility * 0.24;
@@ -174,12 +176,40 @@ function demoBars(stock) {
     return { date, close: Number((stock.base * trend * (1 + cycle + micro)).toFixed(4)) };
   });
   const last = bars.length - 1;
-  const shocks = { GOOGL: 1.095, TSLA: 0.86, NVDA: 1.13, META: 1.055, MSFT: 1.07 };
+  const shocks = { GOOGL: 1.095, TSLA: 0.86, NVDA: 1.13, META: 1.055, MSFT: 1.07, VIX: 1.18 };
   if (shocks[stock.symbol]) bars[last].close = Number((bars[last - 1].close * shocks[stock.symbol]).toFixed(4));
   return bars;
 }
 
+function parseCboeDate(value) {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value);
+  if (!match) return null;
+  const [, month, day, year] = match;
+  return `${year}-${month}-${day}`;
+}
+
+async function vixBars() {
+  const response = await fetch(VIX_HISTORY_URL, {
+    headers: { Accept: "text/csv" },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!response.ok) throw new Error(`Cboe HTTP ${response.status}`);
+  const csv = await response.text();
+  return csv
+    .trim()
+    .split(/\r?\n/)
+    .slice(1)
+    .flatMap((line) => {
+      const [date, , , , close] = line.split(",");
+      const normalizedDate = parseCboeDate(date);
+      const closeValue = Number(close);
+      return normalizedDate && Number.isFinite(closeValue) ? [{ date: normalizedDate, close: closeValue }] : [];
+    })
+    .slice(-320);
+}
+
 async function tiingoBars(stock, token) {
+  if (stock.symbol === "VIX") return vixBars();
   const start = new Date();
   start.setUTCMonth(start.getUTCMonth() - 14);
   const url = new URL(`https://api.tiingo.com/tiingo/daily/${stock.symbol}/prices`);
@@ -243,7 +273,7 @@ const errors = results.flatMap((result, index) => result.error ? [{ symbol: watc
 const isDemo = !token || errors.length > 0;
 const payload = {
   source: token ? "tiingo" : "demo",
-  sourceLabel: token ? "TIINGO EOD" : "SAMPLE MODE",
+  sourceLabel: token ? "TIINGO + CBOE EOD" : "SAMPLE MODE",
   isDemo,
   fetchedAt: new Date().toISOString(),
   asOf: items.map((item) => item.date).sort().at(-1),

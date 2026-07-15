@@ -12,7 +12,7 @@ type Signal =
 type MarketItem = {
   symbol: string;
   name: string;
-  kind: "ETF" | "STOCK";
+  kind: "ETF" | "STOCK" | "INDEX";
   date: string;
   close: number;
   previousClose: number;
@@ -119,6 +119,15 @@ function money(value: number) {
     minimumFractionDigits: value >= 100 ? 2 : 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function quoteValue(value: number, kind: MarketItem["kind"]) {
+  if (kind === "INDEX") return value.toFixed(2);
+  return money(value);
+}
+
+function chartSymbol(symbol: string) {
+  return symbol === "VIX" ? "%5EVIX" : symbol;
 }
 
 function signed(value: number) {
@@ -743,7 +752,7 @@ export function BandDashboard() {
       if (sent.has(key)) continue;
 
       new window.Notification(`${item.symbol} ${signalLabel(item.signal)}`, {
-        body: `${money(item.close)} · ${detailSentence(item)}`,
+        body: `${quoteValue(item.close, item.kind)} · ${detailSentence(item)}`,
       });
       sent.add(key);
     }
@@ -849,7 +858,7 @@ export function BandDashboard() {
           <p className="eyebrow">US MARKET · DAILY CLOSE</p>
           <h1>밴드 이탈만,<br /><span>빠르게.</span></h1>
           <p className="hero-description">
-            VOO와 SPY, 미국 대형주 8개를 20일 이동평균과 2σ 기준으로 추적합니다.
+            VOO와 SPY, VIX 공포지수, 미국 대형주 8개를 20일 이동평균과 2σ 기준으로 추적합니다.
             신호가 생기면 복잡한 차트보다 먼저 보여드립니다.
           </p>
         </div>
@@ -907,7 +916,7 @@ export function BandDashboard() {
         <div className="watchlist-panel">
           <div className="section-heading">
             <div>
-              <p className="section-kicker">WATCHLIST / 10</p>
+              <p className="section-kicker">WATCHLIST / {sortedItems.length}</p>
               <h2>관심 종목</h2>
             </div>
             <label className="search-box">
@@ -966,7 +975,7 @@ export function BandDashboard() {
                         {signalLabel(item.signal)}
                       </span>
                       <span className="price-cell">
-                        <strong>{money(item.close)}</strong>
+                        <strong>{quoteValue(item.close, item.kind)}</strong>
                         <small className={item.changePercent >= 0 ? "positive" : "negative"}>
                           {signed(item.changePercent)}
                         </small>
@@ -995,7 +1004,7 @@ export function BandDashboard() {
               <div className="detail-title">
                 <div><p>{selected.name}</p><h2>{selected.symbol}</h2></div>
                 <div className="detail-price">
-                  <strong>{money(selected.close)}</strong>
+                  <strong>{quoteValue(selected.close, selected.kind)}</strong>
                   <span className={selected.changePercent >= 0 ? "positive" : "negative"}>
                     {signed(selected.changePercent)}
                   </span>
@@ -1020,20 +1029,20 @@ export function BandDashboard() {
                     style={{ left: `${markerPosition(selected)}%` }}
                   >
                     <i />
-                    <b>{money(selected.close)}</b>
+                    <b>{quoteValue(selected.close, selected.kind)}</b>
                   </span>
                 </div>
                 <div className="band-values">
-                  <strong>{money(selected.lowerBand)}</strong>
-                  <strong>{money(selected.sma)}</strong>
-                  <strong>{money(selected.upperBand)}</strong>
+                  <strong>{quoteValue(selected.lowerBand, selected.kind)}</strong>
+                  <strong>{quoteValue(selected.sma, selected.kind)}</strong>
+                  <strong>{quoteValue(selected.upperBand, selected.kind)}</strong>
                 </div>
               </div>
 
               <div className="history-section">
                 <div className="history-heading">
                   <div><span>BAND HISTORY</span><strong>종가 · 20일선 · 상하단 밴드</strong></div>
-                  <a href={`https://finance.yahoo.com/quote/${selected.symbol}/chart`} target="_blank" rel="noreferrer">전체 차트 ↗</a>
+                  <a href={`https://finance.yahoo.com/quote/${chartSymbol(selected.symbol)}/chart`} target="_blank" rel="noreferrer">전체 차트 ↗</a>
                 </div>
                 <BandHistoryChart data={selected.history} />
               </div>
@@ -1085,7 +1094,7 @@ export function BandDashboard() {
         </div>
         <div className="footer-meta">
           <p>{payload ? `마지막 확인 ${fetchedTime(payload.fetchedAt)}` : "데이터 확인 중"}</p>
-          <p>{payload?.source === "tiingo" ? "Data by Tiingo" : "데모 데이터 · 실제 투자 판단용 아님"}</p>
+          <p>{payload?.source === "tiingo" ? "Data by Tiingo + Cboe" : "데모 데이터 · 실제 투자 판단용 아님"}</p>
         </div>
         <p className="disclaimer">본 서비스는 정보 제공용이며 투자 권유가 아닙니다. 미국 시장 종가 반영에는 지연이 있을 수 있습니다.</p>
       </footer>
