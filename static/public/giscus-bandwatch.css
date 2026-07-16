@@ -111,6 +111,10 @@ body {
   gap: 6px;
 }
 
+.gsc-left-header em {
+  display: none !important;
+}
+
 .gsc-comments {
   display: flex;
   flex-direction: column;
@@ -134,6 +138,7 @@ body {
     linear-gradient(180deg, rgba(13, 26, 43, 0.86), rgba(7, 17, 30, 0.76)),
     #07111e;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  overflow: hidden;
 }
 
 .gsc-comment-box {
@@ -195,7 +200,10 @@ body {
 
 .gsc-comment {
   margin-top: 12px;
-  border-left: 2px solid rgba(200, 245, 90, 0.42);
+  border-left: 0;
+  box-shadow:
+    inset 2px 0 0 rgba(200, 245, 90, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
 .gsc-comment-header {
@@ -212,7 +220,6 @@ body {
   color: #c8f55a;
 }
 
-.gsc-left-header em,
 .gsc-comment-timestamp,
 .gsc-comment-author-association {
   color: #8fa0b4;
