@@ -314,7 +314,7 @@ function CommunityComments() {
     script.setAttribute('data-category-id', giscusCategoryId!);
     script.setAttribute('data-mapping', 'specific');
     script.setAttribute('data-term', giscusTerm);
-    script.setAttribute('data-strict', '0');
+    script.setAttribute('data-strict', '1');
     script.setAttribute('data-reactions-enabled', '1');
     script.setAttribute('data-emit-metadata', '0');
     script.setAttribute('data-input-position', 'top');
