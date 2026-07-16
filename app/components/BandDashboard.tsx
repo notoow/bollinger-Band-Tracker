@@ -315,7 +315,7 @@ function CommunityComments() {
     script.setAttribute('data-mapping', 'specific');
     script.setAttribute('data-term', giscusTerm);
     script.setAttribute('data-strict', '1');
-    script.setAttribute('data-reactions-enabled', '1');
+    script.setAttribute('data-reactions-enabled', '0');
     script.setAttribute('data-emit-metadata', '0');
     script.setAttribute('data-input-position', 'top');
     script.setAttribute('data-theme', giscusTheme);
@@ -333,20 +333,14 @@ function CommunityComments() {
       <div className="community-copy">
         <div>
           <p className="section-kicker">COMMUNITY</p>
-          <h2>Market talk</h2>
+          <h2>시장 메모</h2>
+          <p>GitHub 계정으로 가볍게 남기는 BANDWATCH 댓글창입니다.</p>
         </div>
-        <p>Comments are powered by GitHub Discussions through giscus. Sign in with GitHub and write directly on this page.</p>
+        <a className="community-discussions-link" href="https://github.com/notoow/bollinger-Band-Tracker/discussions" target="_blank" rel="noreferrer">
+          GitHub 원문 보기
+        </a>
       </div>
       <div className="comments-box giscus-box">
-        <div className="comments-toolbar">
-          <span>Community comments</span>
-          <div>
-            <a href="https://github.com/notoow/bollinger-Band-Tracker/discussions" target="_blank" rel="noreferrer">
-              Open Discussions
-            </a>
-          </div>
-        </div>
-
         {configured ? (
           <div className="giscus-frame" ref={containerRef} />
         ) : (

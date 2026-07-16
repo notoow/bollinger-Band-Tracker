@@ -88,19 +88,36 @@ main {
 }
 
 body {
+  margin: 0;
   background: transparent;
 }
 
 .gsc-main {
+  margin: 0;
   color: #d8e6f5;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
+  font-size: 13px;
 }
 
 .gsc-header {
-  padding-bottom: 14px;
+  margin: 0 0 12px;
+  padding: 0 0 10px;
   border-bottom: 1px solid rgba(180, 205, 230, 0.12);
+}
+
+.gsc-left-header {
+  gap: 6px;
+}
+
+.gsc-comments {
+  display: flex;
+  flex-direction: column;
+}
+
+.gsc-reactions {
+  display: none !important;
 }
 
 .gsc-comment-box,
@@ -114,20 +131,44 @@ body {
 .gsc-comment {
   border-radius: 14px;
   background:
-    linear-gradient(180deg, rgba(13, 26, 43, 0.92), rgba(7, 17, 30, 0.82)),
+    linear-gradient(180deg, rgba(13, 26, 43, 0.86), rgba(7, 17, 30, 0.76)),
     #07111e;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
+.gsc-comment-box {
+  margin: 0 0 16px;
+}
+
 .gsc-comment-box-textarea {
+  min-height: 76px;
   border-radius: 12px;
   background: rgba(3, 10, 18, 0.62);
   color: #f7fbff;
+  font-size: 13px;
 }
 
 .gsc-comment-box-textarea:focus {
   border-color: rgba(200, 245, 90, 0.55);
   box-shadow: 0 0 0 3px rgba(200, 245, 90, 0.11);
+}
+
+.gsc-comment-box-tabs {
+  padding-left: 0;
+}
+
+.gsc-comment-box-tabs button {
+  min-height: 38px;
+  padding-inline: 16px;
+}
+
+.gsc-comment-box-bottom {
+  padding: 8px 8px 8px 10px;
+}
+
+.gsc-submit {
+  border-radius: 8px;
+  font-weight: 800;
 }
 
 .gsc-comment-author,
@@ -141,6 +182,21 @@ body {
 .gsc-comment-content p,
 .gsc-comment-content li {
   color: #d8e6f5;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.gsc-comment {
+  margin-top: 12px;
+  border-left: 2px solid rgba(200, 245, 90, 0.42);
+}
+
+.gsc-comment-header {
+  padding-bottom: 8px;
+}
+
+.gsc-comment-content {
+  padding-top: 4px;
 }
 
 .gsc-comment-content a,
@@ -164,7 +220,9 @@ body {
 }
 
 .gsc-timeline {
-  flex-direction: column-reverse;
+  margin-top: 0;
+  padding-top: 0;
+  flex-direction: column;
 }
 
 .gsc-comments > .gsc-header {
@@ -186,4 +244,14 @@ main .pagination-loader-container {
 
 main .gsc-loading-image {
   filter: hue-rotate(55deg) saturate(1.25);
+}
+
+@media (max-width: 700px) {
+  .gsc-main {
+    font-size: 12px;
+  }
+
+  .gsc-comment-box-tabs button {
+    padding-inline: 12px;
+  }
 }
