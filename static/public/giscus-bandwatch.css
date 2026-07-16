@@ -166,6 +166,13 @@ body {
   padding: 8px 8px 8px 10px;
 }
 
+.gsc-comment-box-markdown-hint,
+.gsc-comment-box-bottom > a,
+.gsc-comment-box-bottom .gsc-comment-box-markdown-hint,
+.gsc-comment-box-bottom .gsc-comment-box-help {
+  display: none !important;
+}
+
 .gsc-submit {
   border-radius: 8px;
   font-weight: 800;
