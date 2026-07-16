@@ -291,7 +291,9 @@ const giscusRepoId = process.env.NEXT_PUBLIC_GISCUS_REPO_ID;
 const giscusCategory = process.env.NEXT_PUBLIC_GISCUS_CATEGORY || 'General';
 const giscusCategoryId = process.env.NEXT_PUBLIC_GISCUS_CATEGORY_ID;
 const giscusTerm = process.env.NEXT_PUBLIC_GISCUS_TERM || 'bandwatch-community';
-const giscusTheme = process.env.NEXT_PUBLIC_GISCUS_THEME || 'dark_dimmed';
+const giscusTheme =
+  process.env.NEXT_PUBLIC_GISCUS_THEME ||
+  'https://notoow.github.io/bollinger-Band-Tracker/giscus-bandwatch.css';
 
 function CommunityComments() {
   const containerRef = useRef<HTMLDivElement>(null);

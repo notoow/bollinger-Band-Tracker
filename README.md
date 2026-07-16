@@ -51,7 +51,7 @@ The public site uses [giscus](https://giscus.app/) for GitHub Discussions-powere
    - `VITE_GISCUS_CATEGORY` (for example `General`)
    - `VITE_GISCUS_CATEGORY_ID`
    - `VITE_GISCUS_TERM` (optional, default `bandwatch-community`)
-   - `VITE_GISCUS_THEME` (optional, default `dark_dimmed`)
+   - `VITE_GISCUS_THEME` (optional, default `https://notoow.github.io/bollinger-Band-Tracker/giscus-bandwatch.css`)
 
 For local development, put the same `VITE_GISCUS_*` values in `.env.local`.
 

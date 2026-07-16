@@ -310,7 +310,9 @@ const giscusRepoId = import.meta.env.VITE_GISCUS_REPO_ID as string | undefined;
 const giscusCategory = (import.meta.env.VITE_GISCUS_CATEGORY as string | undefined) || 'General';
 const giscusCategoryId = import.meta.env.VITE_GISCUS_CATEGORY_ID as string | undefined;
 const giscusTerm = (import.meta.env.VITE_GISCUS_TERM as string | undefined) || 'bandwatch-community';
-const giscusTheme = (import.meta.env.VITE_GISCUS_THEME as string | undefined) || 'dark_dimmed';
+const giscusTheme =
+  (import.meta.env.VITE_GISCUS_THEME as string | undefined) ||
+  'https://notoow.github.io/bollinger-Band-Tracker/giscus-bandwatch.css';
 
 function CommunityComments() {
   const containerRef = useRef<HTMLDivElement>(null);
