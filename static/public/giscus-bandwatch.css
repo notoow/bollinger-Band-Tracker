@@ -143,6 +143,7 @@ body {
 
 .gsc-comment-box {
   margin: 0 0 12px;
+  padding-top: 8px;
 }
 
 .gsc-comment-box-textarea {
@@ -164,22 +165,26 @@ body {
 }
 
 .gsc-comment-box-tabs {
-  padding-left: 0;
+  display: none !important;
 }
 
 .gsc-comment-box-tabs button {
-  min-height: 34px;
-  padding-inline: 14px;
+  display: none !important;
 }
 
 .gsc-comment-box-bottom {
   min-height: 42px;
   padding: 6px 8px;
+  justify-content: flex-end;
 }
 
 .gsc-comment-box-bottom > div:first-child:not(:last-child),
 .gsc-comment-box-bottom > a:first-child {
   display: none !important;
+}
+
+.gsc-comment-box-main {
+  margin-top: 0 !important;
 }
 
 .gsc-comment-box-markdown-hint,
