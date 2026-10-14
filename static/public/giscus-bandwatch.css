@@ -290,3 +290,73 @@ main .gsc-loading-image {
     padding-inline: 12px;
   }
 }
+
+/* Bandwatch wall mode: keep only the textarea, action buttons, and comments. */
+.gsc-comment-box .tabnav,
+.gsc-comment-box .tabnav-tabs,
+.gsc-comment-box .tabnav-tab,
+.gsc-comment-box-tabs,
+.gsc-comment-box-tabs *,
+.gsc-comment-box-toolbar,
+.gsc-comment-box-toolbar *,
+.gsc-comment-box-textarea-extras,
+.gsc-comment-box-textarea-extras *,
+.gsc-comment-box-markdown-hint,
+.gsc-comment-box-help,
+.gsc-comment-box-bottom .Link--muted,
+.gsc-comment-box-bottom .color-fg-muted,
+.gsc-comment-box-bottom .text-small,
+.gsc-comment-box-bottom .octicon-sign-out,
+.gsc-comment-box-bottom [href*="logout"],
+.gsc-comment-box-bottom [aria-label*="monospace" i],
+.gsc-comment-box-bottom [title*="monospace" i],
+.gsc-comment-box-bottom [aria-label*="fixed" i],
+.gsc-comment-box-bottom [title*="fixed" i] {
+  display: none !important;
+}
+
+.gsc-comment-box,
+.gsc-comment-box-main,
+.gsc-comment-box .write-content,
+.gsc-comment-box .preview-content {
+  margin-top: 0 !important;
+  border-top: 0 !important;
+}
+
+.gsc-comment-box .form-control:focus,
+.gsc-comment-box .form-control:focus-visible,
+.gsc-comment-box textarea:focus,
+.gsc-comment-box textarea:focus-visible,
+.gsc-comment-box button:focus,
+.gsc-comment-box button:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.gsc-comment-box-textarea,
+.gsc-comment-box .form-control {
+  border: 1px solid rgba(180, 205, 230, 0.16) !important;
+  border-radius: 11px !important;
+  box-shadow: none !important;
+}
+
+.gsc-comment-box-bottom {
+  display: flex !important;
+  min-height: 38px;
+  align-items: center;
+  justify-content: flex-end !important;
+  gap: 8px;
+  padding: 6px 8px !important;
+}
+
+.gsc-comment-box-bottom .btn {
+  min-height: 32px;
+  border-radius: 8px;
+}
+
+.gsc-comment,
+.gsc-reply-box {
+  border: 1px solid rgba(200, 245, 90, 0.32) !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+}
